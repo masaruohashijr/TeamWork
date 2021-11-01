@@ -1,6 +1,6 @@
 ## List of tasks I would need more time to complete
 - Documentation
-- Testing
+- Testing 
 - Deployment
 - The rest of the repositories: Postgres, Redis, SQLite, etc.
 - The rest of the api technologies: GraphQL, gRPC, RSocket, REST, SOAP.
