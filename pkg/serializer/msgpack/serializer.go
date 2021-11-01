@@ -1,7 +1,7 @@
 package msgpack
 
 import (
-	"golang-interview-project-masaru-ohashi/pkg/member"
+	"golang-interview-project-masaru-ohashi/pkg/team"
 
 	"github.com/pkg/errors"
 	"github.com/vmihailenco/msgpack"
@@ -9,18 +9,17 @@ import (
 
 type Member struct{}
 
-func (r *Member) Decode(input []byte) (*member.Member, error) {
-	redirect := &member.Member{}
-	if err := msgpack.Unmarshal(input, redirect); err != nil {
+func (m *Member) Decode(pogo []byte) (requestMember *team.RequestMember, err error) {
+	if err = msgpack.Unmarshal(pogo, requestMember.Member); err != nil {
 		return nil, errors.Wrap(err, "serializer.Member.Decode")
 	}
-	return redirect, nil
+	return requestMember, nil
 }
 
-func (r *Member) Encode(input *member.Member) ([]byte, error) {
-	rawMsg, err := msgpack.Marshal(input)
+func (m *Member) Encode(pogo interface{}) ([]byte, error) {
+	serialized, err := msgpack.Marshal(pogo)
 	if err != nil {
 		return nil, errors.Wrap(err, "serializer.Member.Encode")
 	}
-	return rawMsg, nil
+	return serialized, nil
 }

@@ -2,9 +2,10 @@ package main
 
 import (
 	"fmt"
-	"golang-interview-project-masaru-ohashi/pkg/api"
-	"golang-interview-project-masaru-ohashi/pkg/member"
-	rm "golang-interview-project-masaru-ohashi/pkg/repository/mongo"
+	"golang-interview-project-masaru-ohashi/cmd/common"
+	"golang-interview-project-masaru-ohashi/pkg/api/REST"
+	rmo "golang-interview-project-masaru-ohashi/pkg/repository/mongo"
+	"golang-interview-project-masaru-ohashi/pkg/team"
 	"log"
 	"net/http"
 	"os"
@@ -17,15 +18,13 @@ import (
 )
 
 func main() {
-	mongoURL := "mongodb://localhost:27017/"
-	mongodb := "mongodb"
-	mongoTimeout := 60000
-	repo, err := rm.NewMongoRepository(mongoURL, mongodb, mongoTimeout)
+
+	repo, err := rmo.NewMongoRepository(common.MONGO_URL, common.MONGO_DB, common.MONGO_TIMEOUT)
 	if err != nil {
 		log.Fatal(err)
 	}
-	service := member.NewMemberService(repo)
-	handler := api.NewHandler(service)
+	service := team.NewMemberService(repo)
+	handler := REST.NewHandler(service)
 
 	r := chi.NewRouter()
 	r.Use(middleware.RequestID)
@@ -33,13 +32,16 @@ func main() {
 	r.Use(middleware.Logger)
 	r.Use(middleware.Recoverer)
 
-	r.Get("/{name}", handler.Get)
-	r.Post("/", handler.Post)
+	r.Get("/Members", handler.GetAll)
+	r.Get("/Member/{name}", handler.Get)
+	r.Post("/Member", handler.Post)
+	r.Put("/Member", handler.Put)
+	r.Delete("/Member", handler.Delete)
 
 	errs := make(chan error, 2)
 	go func() {
-		fmt.Println("Listening on port :8000")
-		errs <- http.ListenAndServe(":8000", r)
+		fmt.Println("Listening on port :" + common.REST_PORT)
+		errs <- http.ListenAndServe(":"+common.REST_PORT, r)
 	}()
 
 	go func() {
@@ -47,6 +49,5 @@ func main() {
 		signal.Notify(c, syscall.SIGINT)
 		errs <- fmt.Errorf("%s", <-c)
 	}()
-
 	fmt.Printf("Terminated %s", <-errs)
 }
