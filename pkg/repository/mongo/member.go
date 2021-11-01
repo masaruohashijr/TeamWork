@@ -2,7 +2,10 @@ package mongo
 
 import (
 	"context"
+	"fmt"
+	"golang-interview-project-masaru-ohashi/cmd/common"
 	"golang-interview-project-masaru-ohashi/pkg/team"
+	"reflect"
 	"time"
 
 	"github.com/pkg/errors"
@@ -46,25 +49,57 @@ func NewMongoRepository(mongoURL, mongoDB string, mongoTimeout int) (team.Member
 }
 
 func (r *mongoRepository) DbGetAll() (members []interface{}, err error) {
-	//collection := r.client.Database(r.database).Collection("members")
-	// cursor, err := collection.Find(context.TODO(), bson.D{})
-	// if err != nil {
-	// 	return members, err
-	// }
-	// for cursor.Next(context.TODO()) {
-	// 	member := &team.Contractor{}
-	// 	err := cursor.Decode(&member)
-	// 	if err != nil {
-	// 		return members, err
-	// 	}
-	// 	*members = append(*members, member)
-	// }
-	// if err != nil {
-	// 	if err == mongo.ErrNoDocuments {
-	// 		return nil, errors.Wrap(team.ErrMemberNotFound, "repository.Member.GetAll")
-	// 	}
-	// 	return nil, errors.Wrap(err, "repository.Member.GetAll")
-	// }
+	collection := r.client.Database(r.database).Collection("members")
+	cursor, err := collection.Find(context.Background(), bson.D{})
+	if err != nil {
+		return members, err
+	}
+	for cursor.Next(context.Background()) {
+		resultMap := map[string]interface{}{}
+		err := cursor.Decode(&resultMap)
+		if err != nil {
+			return members, err
+		}
+		agreement := resultMap["agreement"].(string)
+		if agreement == common.CONTRACTOR {
+			tgs := resultMap["tags"]
+			var tags []string
+			switch reflect.TypeOf(tgs).Kind() {
+			case reflect.Slice:
+				s := reflect.ValueOf(tgs)
+				for i := 0; i < s.Len(); i++ {
+					tags[i] = fmt.Sprint(s.Index(i))
+				}
+			}
+			member := team.Contractor{
+				Colaborator: team.Colaborator{
+					Name:      resultMap["name"].(string),
+					Agreement: resultMap["agreement"].(string),
+					CreatedAt: resultMap["created_at"].(int64),
+					Tags:      tags,
+				},
+				Duration: resultMap["duration"].(int),
+			}
+			members = append(members, member)
+		} else if agreement == string(common.EMPLOYEE) {
+			member := team.Employee{
+				Colaborator: team.Colaborator{
+					Name:      resultMap["name"].(string),
+					Agreement: resultMap["agreement"].(string),
+					CreatedAt: resultMap["created_at"].(int64),
+					Tags:      resultMap["tags"].([]string),
+				},
+				Role: resultMap["role"].(string),
+			}
+			members = append(members, member)
+		}
+	}
+	if err != nil {
+		if err == mongo.ErrNoDocuments {
+			return nil, errors.Wrap(team.ErrMemberNotFound, "repository.Member.GetAll")
+		}
+		return nil, errors.Wrap(err, "repository.Member.GetAll")
+	}
 	return members, nil
 }
 
@@ -103,6 +138,7 @@ func (r *mongoRepository) DbCreate(member interface{}) error {
 			bson.M{
 				"name":       v.GetName(),
 				"duration":   v.Duration,
+				"agreement":  v.GetAgreement(),
 				"tags":       v.GetTags(),
 				"created_at": v.GetCreatedAt(),
 			},
@@ -116,6 +152,7 @@ func (r *mongoRepository) DbCreate(member interface{}) error {
 			ctx,
 			bson.M{
 				"name":       v.GetName(),
+				"agreement":  v.GetAgreement(),
 				"role":       v.Role,
 				"tags":       v.GetTags(),
 				"created_at": v.GetCreatedAt(),

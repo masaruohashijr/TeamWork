@@ -58,7 +58,10 @@ func (a *memberAPI) Post(member team.Member) (team.Member, error) {
 	errors.CheckErrorMember(err, errHandler)
 	defer resp.Body.Close()
 	fmt.Println("response Status:", resp.Status)
+	fmt.Println("response Headers:", resp.Header)
 	body, err := ioutil.ReadAll(resp.Body)
+	b := string(body)
+	fmt.Println("response Body:", b)
 	if resp.StatusCode != 200 && resp.StatusCode != 201 {
 		return nil, fmt.Errorf(string(body))
 	}
@@ -116,14 +119,15 @@ func (a *memberAPI) GetAll() (members []interface{}, err error) {
 	}
 	defer resp.Body.Close()
 	fmt.Println("response Status:", resp.Status)
+	fmt.Println("response Headers:", resp.Header)
 	body, err := ioutil.ReadAll(resp.Body)
+	b := string(body)
+	fmt.Println("response Body:", b)
 	if resp.StatusCode != 200 && resp.StatusCode != 201 {
 		return nil, fmt.Errorf(string(body))
 	}
 	err = json.Unmarshal(body, &members)
 	errors.CheckErrorMember(err, errHandler)
-	b := string(body)
-	fmt.Println("response Body:", b)
 	json.Unmarshal(body, &members)
 	return members, nil
 }

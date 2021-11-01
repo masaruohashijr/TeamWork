@@ -1,10 +1,8 @@
 package common
 
-type Agreement string
-
 const (
-	EMPLOYEE   Agreement = "EMPLOYEE"
-	CONTRACTOR Agreement = "CONTRACTOR"
+	EMPLOYEE   string = "EMPLOYEE"
+	CONTRACTOR string = "CONTRACTOR"
 )
 
 const (
