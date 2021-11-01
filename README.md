@@ -1,3 +1,10 @@
+## List of tasks I would need more time to complete
+- Documentation
+- Testing 
+- Deployment
+- The rest of the repositories: Postgres, Redis, SQLite, etc.
+- The rest of the api technologies: GraphQL, gRPC, RSocket, REST, SOAP.
+
 ## Instructions
 
 The goal of this exercise is to create a demo RESTful application using Golang.
