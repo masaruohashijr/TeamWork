@@ -6,7 +6,6 @@ import (
 	"time"
 
 	errs "github.com/pkg/errors"
-	"gopkg.in/dealancer/validate.v2"
 )
 
 var (
@@ -58,22 +57,18 @@ func (r *memberService) Update(member interface{}) error {
 	case *Contractor:
 		member = member.(*Contractor)
 		if member.(*Contractor).Duration == 0 {
-			return errs.Wrap(ErrMemberInvalid, fmt.Sprintf("Cannot create member: %s. Missing Duration.",
+			return errs.Wrap(ErrMemberInvalid, fmt.Sprintf("Cannot UPDATE member: %s. Missing Duration.",
 				member.(*Contractor).GetName()))
 		}
 	case *Employee:
 		member = member.(*Employee)
 		if member.(*Employee).Role == "" {
-			return errs.Wrap(ErrMemberInvalid, fmt.Sprintf("Cannot create member: %s. Missing Role.",
+			return errs.Wrap(ErrMemberInvalid, fmt.Sprintf("Cannot UPDATE member: %s. Missing Role.",
 				member.(*Contractor).GetName()))
 		}
 	}
 	return r.memberRepo.DbUpdate(member)
 }
 func (r *memberService) Delete(member interface{}) error {
-	if err := validate.Validate(member); err != nil {
-		return errs.Wrap(ErrMemberInvalid, "service.Member.Delete")
-	}
-	//member.CreatedAt = time.Now().UTC().Unix()
-	return r.memberRepo.DbCreate(member)
+	return r.memberRepo.DbDelete(member)
 }

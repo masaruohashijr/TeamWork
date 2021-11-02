@@ -88,6 +88,7 @@ func (r *mongoRepository) DbGetAll() (members []interface{}, err error) {
 			}
 			member := team.Employee{
 				Colaborator: team.Colaborator{
+					ID:        resultMap["_id"].(primitive.ObjectID),
 					Name:      resultMap["name"].(string),
 					Agreement: resultMap["agreement"].(string),
 					CreatedAt: resultMap["created_at"].(int64),
@@ -211,19 +212,57 @@ func (r *mongoRepository) DbUpdate(member interface{}) error {
 	switch member.(type) {
 	case *team.Contractor:
 	case *team.Employee:
-		println(member.(*team.Employee).Colaborator.ID.Hex())
+		objId := member.(*team.Employee).Colaborator.ID
 		collection := r.client.Database(r.database).Collection("members")
-		filter := bson.M{"_id": bson.M{"$eq": "6181232b0f190acdebe3a92e"}}
+		filter := bson.M{"_id": bson.M{"$eq": objId}}
 		update := bson.M{"$set": bson.M{"role": member.(*team.Employee).Role}}
-		collection.UpdateOne(
+		updateResult, err := collection.UpdateOne(
 			context.Background(),
 			filter,
 			update,
 		)
+		if updateResult != nil {
+			println(updateResult.MatchedCount)
+			println(updateResult.ModifiedCount)
+			println(updateResult.UpsertedCount)
+		}
+		if err != nil {
+			println(err.Error())
+		}
 	}
 	return nil
 }
 
 func (r *mongoRepository) DbDelete(member interface{}) error {
+	switch member.(type) {
+	case *team.Contractor:
+		objId := member.(*team.Contractor).Colaborator.ID
+		collection := r.client.Database(r.database).Collection("members")
+		filter := bson.M{"_id": bson.M{"$eq": objId}}
+		deleteResult, err := collection.DeleteOne(
+			context.Background(),
+			filter,
+		)
+		if deleteResult != nil {
+			println(deleteResult.DeletedCount)
+		}
+		if err != nil {
+			println(err.Error())
+		}
+	case *team.Employee:
+		objId := member.(*team.Employee).Colaborator.ID
+		collection := r.client.Database(r.database).Collection("members")
+		filter := bson.M{"_id": bson.M{"$eq": objId}}
+		deleteResult, err := collection.DeleteOne(
+			context.Background(),
+			filter,
+		)
+		if deleteResult != nil {
+			println(deleteResult.DeletedCount)
+		}
+		if err != nil {
+			println(err.Error())
+		}
+	}
 	return nil
 }

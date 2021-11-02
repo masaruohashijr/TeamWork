@@ -78,7 +78,6 @@ func (a *memberAPI) Post(member team.Member) (team.Member, error) {
 func (a *memberAPI) Put(member team.Member) (team.Member, error) {
 	apiEndpoint := a.apiUrl + "/Member"
 	request := &team.RequestMember{}
-	var newMember team.Member
 	switch member.(type) {
 	case *team.Contractor:
 		request = &team.RequestMember{
@@ -111,32 +110,68 @@ func (a *memberAPI) Put(member team.Member) (team.Member, error) {
 		return nil, fmt.Errorf(string(body))
 	}
 	errors.CheckErrorMember(err, errHandler)
-	err = json.Unmarshal(body, &newMember)
-	errors.CheckErrorMember(err, errHandler)
-	return newMember, nil
+
+	resultMap := make(map[string]interface{})
+	err = json.Unmarshal(body, &resultMap)
+	var agreement string
+	if cmap, ok := resultMap["Colaborator"].(map[string]interface{}); ok {
+		agreement = cmap["agreement"].(string)
+	}
+	if agreement == common.CONTRACTOR {
+		member = buildContractor(resultMap)
+	} else if agreement == string(common.EMPLOYEE) {
+		member = buildEmployee(resultMap)
+	}
+	return member, nil
 }
 
 func (a *memberAPI) Delete(member team.Member) (team.Member, error) {
-	//apiEndpoint := a.apiUrl + "/Member"
-	/*request := &common.Request{
-		RepoType: a.repoType,
-		Member:   m,
+	apiEndpoint := a.apiUrl + "/Member"
+	request := &team.RequestMember{}
+	switch member.(type) {
+	case *team.Contractor:
+		request = &team.RequestMember{
+			RepoType: a.repoType,
+			Member:   member.(*team.Contractor),
+		}
+	case *team.Employee:
+		request = &team.RequestMember{
+			RepoType: a.repoType,
+			Member:   member.(*team.Employee),
+		}
 	}
 	requestBody, err := json.Marshal(request)
 	var buffer *bytes.Buffer = bytes.NewBuffer(requestBody)
 	req, err := http.NewRequest("DELETE", apiEndpoint, buffer)
-	if err != nil {
-		return err
-	}
-
+	errors.CheckErrorMember(err, errHandler)
 	req.Header.Set("Content-Type", "application/json")
+
 	client := &http.Client{}
 	resp, err := client.Do(req)
-	if err != nil {
-		return err
+
+	errors.CheckErrorMember(err, errHandler)
+	defer resp.Body.Close()
+	fmt.Println("response Status:", resp.Status)
+	fmt.Println("response Headers:", resp.Header)
+	body, err := ioutil.ReadAll(resp.Body)
+	b := string(body)
+	fmt.Println("response Body:", b)
+	if resp.StatusCode != 200 && resp.StatusCode != 201 {
+		return nil, fmt.Errorf(string(body))
 	}
-	defer resp.Body.Close()*/
-	return nil, nil
+	errors.CheckErrorMember(err, errHandler)
+	resultMap := make(map[string]interface{})
+	err = json.Unmarshal(body, &resultMap)
+	var agreement string
+	if cmap, ok := resultMap["Colaborator"].(map[string]interface{}); ok {
+		agreement = cmap["agreement"].(string)
+	}
+	if agreement == common.CONTRACTOR {
+		member = buildContractor(resultMap)
+	} else if agreement == string(common.EMPLOYEE) {
+		member = buildEmployee(resultMap)
+	}
+	return member, nil
 }
 
 func (a *memberAPI) GetAll() ([]team.Member, error) {
@@ -226,9 +261,10 @@ func buildContractor(resultMap map[string]interface{}) (member team.Member) {
 	for i := 0; i < s.Len(); i++ {
 		tags = append(tags, s.Index(i).Elem().String())
 	}
+	objId, _ := primitive.ObjectIDFromHex(colaboratorMap["id"].(string))
 	member = &team.Contractor{
 		Colaborator: team.Colaborator{
-			ID:        colaboratorMap["id"].(primitive.ObjectID),
+			ID:        objId,
 			Name:      colaboratorMap["name"].(string),
 			Agreement: colaboratorMap["agreement"].(string),
 			CreatedAt: int64(colaboratorMap["created_at"].(float64)),
@@ -248,9 +284,10 @@ func buildEmployee(resultMap map[string]interface{}) (member team.Member) {
 	for i := 0; i < s.Len(); i++ {
 		tags = append(tags, s.Index(i).Elem().String())
 	}
+	objId, _ := primitive.ObjectIDFromHex(colaboratorMap["id"].(string))
 	member = &team.Employee{
 		Colaborator: team.Colaborator{
-			ID:        colaboratorMap["id"].(primitive.ObjectID),
+			ID:        objId,
 			Name:      colaboratorMap["name"].(string),
 			Agreement: colaboratorMap["agreement"].(string),
 			CreatedAt: int64(colaboratorMap["created_at"].(float64)),

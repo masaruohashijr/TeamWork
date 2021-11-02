@@ -41,6 +41,7 @@ func main() {
 		member.(*team.Employee).Role = "Scala Developer"
 	}
 	member, _ = newMemberAPI.Put(member)
+	newMemberAPI.Delete(member)
 }
 
 func settleApi(apiType, repoType *string) ports.MemberPort {
