@@ -6,10 +6,12 @@ import (
 	"fmt"
 	"golang-interview-project-masaru-ohashi/cmd/client/errors"
 	"golang-interview-project-masaru-ohashi/cmd/client/ports"
+	"golang-interview-project-masaru-ohashi/cmd/common"
 	"golang-interview-project-masaru-ohashi/pkg/team"
 	"io/ioutil"
 	"net/http"
 	"net/url"
+	"reflect"
 )
 
 var errHandler = func(e error) (team.Member, error) {
@@ -71,12 +73,12 @@ func (a *memberAPI) Post(member team.Member) (team.Member, error) {
 	return newMember, nil
 }
 
-func (a *memberAPI) Put(member interface{}) error {
+func (a *memberAPI) Put(member team.Member) (team.Member, error) {
 	// apiEndpoint := a.apiUrl + "/Member"
-	return nil
+	return nil, nil
 }
 
-func (a *memberAPI) Delete(m interface{}) error {
+func (a *memberAPI) Delete(member team.Member) (team.Member, error) {
 	//apiEndpoint := a.apiUrl + "/Member"
 	/*request := &common.Request{
 		RepoType: a.repoType,
@@ -96,10 +98,10 @@ func (a *memberAPI) Delete(m interface{}) error {
 		return err
 	}
 	defer resp.Body.Close()*/
-	return nil
+	return nil, nil
 }
 
-func (a *memberAPI) GetAll() (members []interface{}, err error) {
+func (a *memberAPI) GetAll() ([]team.Member, error) {
 	apiEndpoint := a.apiUrl + "/Members"
 	request := &team.RequestMember{
 		RepoType: a.repoType,
@@ -108,14 +110,13 @@ func (a *memberAPI) GetAll() (members []interface{}, err error) {
 	var buffer *bytes.Buffer = bytes.NewBuffer(requestBody)
 	req, err := http.NewRequest("GET", apiEndpoint, buffer)
 	if err != nil {
-		return members, err
+		return nil, err
 	}
-
 	req.Header.Set("Content-Type", "application/json")
 	client := &http.Client{}
 	resp, err := client.Do(req)
 	if err != nil {
-		return members, err
+		return nil, err
 	}
 	defer resp.Body.Close()
 	fmt.Println("response Status:", resp.Status)
@@ -126,30 +127,32 @@ func (a *memberAPI) GetAll() (members []interface{}, err error) {
 	if resp.StatusCode != 200 && resp.StatusCode != 201 {
 		return nil, fmt.Errorf(string(body))
 	}
-	err = json.Unmarshal(body, &members)
+	results := []map[string]interface{}{}
+	if err := json.Unmarshal(body, &results); err != nil {
+		return nil, err
+	}
+	var members []team.Member
+	var agreement string
+	for _, resultMap := range results {
+		if cmap, ok := resultMap["Colaborator"].(map[string]interface{}); ok {
+			agreement = cmap["agreement"].(string)
+		}
+		if agreement == common.CONTRACTOR {
+			members = append(members, buildContractor(resultMap))
+		} else if agreement == string(common.EMPLOYEE) {
+			members = append(members, buildEmployee(resultMap))
+		}
+	}
 	errors.CheckErrorMember(err, errHandler)
-	json.Unmarshal(body, &members)
 	return members, nil
 }
 
-func (a *memberAPI) Get(name string) (member interface{}, err error) {
-	apiEndpoint := a.apiUrl +
-		"/Member"
-	values := &url.Values{}
-	values.Add("Name", name)
-	var buffer *bytes.Buffer = bytes.NewBufferString(values.Encode())
-	req, err := http.NewRequest("GET", apiEndpoint, buffer)
-	switch v := member.(type) {
-	case *team.Contractor:
-		*v = team.Contractor{}
-	case *team.Employee:
-		*v = team.Employee{}
-	}
+func (a *memberAPI) Get(name string) (member team.Member, err error) {
+	apiEndpoint := a.apiUrl + "/Member/" + url.QueryEscape(name)
+	req, err := http.NewRequest("GET", apiEndpoint, nil)
 	if err != nil {
 		return member, err
 	}
-	q := req.URL.Query()
-	req.URL.RawQuery = q.Encode()
 	req.Header.Set("Content-Type", "application/json")
 	client := &http.Client{}
 	resp, err := client.Do(req)
@@ -162,9 +165,58 @@ func (a *memberAPI) Get(name string) (member interface{}, err error) {
 	if err != nil {
 		return member, err
 	}
-	err = json.Unmarshal(body, &member)
-	if err != nil {
-		return member, err
+	resultMap := make(map[string]interface{})
+	err = json.Unmarshal(body, &resultMap)
+	var agreement string
+	if cmap, ok := resultMap["Colaborator"].(map[string]interface{}); ok {
+		agreement = cmap["agreement"].(string)
+	}
+	if agreement == common.CONTRACTOR {
+		member = buildContractor(resultMap)
+	} else if agreement == string(common.EMPLOYEE) {
+		member = buildEmployee(resultMap)
 	}
 	return member, nil
+}
+
+func buildContractor(resultMap map[string]interface{}) (member team.Member) {
+	colaboratorMap := resultMap["Colaborator"].(map[string]interface{})
+	duration := resultMap["duration"].(interface{})
+	var tags []string
+	tgs := colaboratorMap["tags"]
+	s := reflect.ValueOf(tgs)
+	for i := 0; i < s.Len(); i++ {
+		tags = append(tags, s.Index(i).Elem().String())
+	}
+	member = &team.Contractor{
+		Colaborator: team.Colaborator{
+			Name:      colaboratorMap["name"].(string),
+			Agreement: colaboratorMap["agreement"].(string),
+			CreatedAt: int64(colaboratorMap["created_at"].(float64)),
+			Tags:      tags,
+		},
+		Duration: int(duration.(float64)),
+	}
+	return
+}
+
+func buildEmployee(resultMap map[string]interface{}) (member team.Member) {
+	colaboratorMap := resultMap["Colaborator"].(map[string]interface{})
+	role := resultMap["role"].(interface{})
+	var tags []string
+	tgs := colaboratorMap["tags"]
+	s := reflect.ValueOf(tgs)
+	for i := 0; i < s.Len(); i++ {
+		tags = append(tags, s.Index(i).Elem().String())
+	}
+	member = &team.Employee{
+		Colaborator: team.Colaborator{
+			Name:      colaboratorMap["name"].(string),
+			Agreement: colaboratorMap["agreement"].(string),
+			CreatedAt: int64(colaboratorMap["created_at"].(float64)),
+			Tags:      tags,
+		},
+		Role: role.(string),
+	}
+	return
 }

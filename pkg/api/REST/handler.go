@@ -2,6 +2,7 @@ package REST
 
 import (
 	"encoding/json"
+	"fmt"
 	jss "golang-interview-project-masaru-ohashi/pkg/serializer/json"
 	"golang-interview-project-masaru-ohashi/pkg/serializer/msgpack"
 	"golang-interview-project-masaru-ohashi/pkg/serializer/xml"
@@ -10,9 +11,8 @@ import (
 	"log"
 	"net/http"
 
-	"github.com/pkg/errors"
-
 	"github.com/go-chi/chi"
+	"github.com/pkg/errors"
 )
 
 type MemberHandler interface {
@@ -69,6 +69,7 @@ func (h *handler) GetAll(w http.ResponseWriter, r *http.Request) {
 
 func (h *handler) Get(w http.ResponseWriter, r *http.Request) {
 	name := chi.URLParam(r, "name")
+	fmt.Println(name)
 	member, err := h.memberService.Get(name)
 	if err != nil {
 		if errors.Cause(err) == team.ErrMemberNotFound {
@@ -78,7 +79,12 @@ func (h *handler) Get(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
 		return
 	}
-	w.Write([]byte(member.(team.Member).GetName()))
+	sMember, err := json.Marshal(member)
+	if err != nil {
+		w.Write([]byte(err.Error()))
+		return
+	}
+	w.Write([]byte(sMember))
 }
 
 func (h *handler) Post(w http.ResponseWriter, r *http.Request) {

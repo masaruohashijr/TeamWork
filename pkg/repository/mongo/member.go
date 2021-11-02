@@ -2,7 +2,6 @@ package mongo
 
 import (
 	"context"
-	"fmt"
 	"golang-interview-project-masaru-ohashi/cmd/common"
 	"golang-interview-project-masaru-ohashi/pkg/team"
 	"reflect"
@@ -62,14 +61,11 @@ func (r *mongoRepository) DbGetAll() (members []interface{}, err error) {
 		}
 		agreement := resultMap["agreement"].(string)
 		if agreement == common.CONTRACTOR {
-			tgs := resultMap["tags"]
 			var tags []string
-			switch reflect.TypeOf(tgs).Kind() {
-			case reflect.Slice:
-				s := reflect.ValueOf(tgs)
-				for i := 0; i < s.Len(); i++ {
-					tags[i] = fmt.Sprint(s.Index(i))
-				}
+			tgs := resultMap["tags"]
+			s := reflect.ValueOf(tgs)
+			for i := 0; i < s.Len(); i++ {
+				tags = append(tags, s.Index(i).Elem().String())
 			}
 			member := team.Contractor{
 				Colaborator: team.Colaborator{
@@ -78,16 +74,22 @@ func (r *mongoRepository) DbGetAll() (members []interface{}, err error) {
 					CreatedAt: resultMap["created_at"].(int64),
 					Tags:      tags,
 				},
-				Duration: resultMap["duration"].(int),
+				Duration: int(resultMap["duration"].(int32)),
 			}
 			members = append(members, member)
 		} else if agreement == string(common.EMPLOYEE) {
+			var tags []string
+			tgs := resultMap["tags"]
+			s := reflect.ValueOf(tgs)
+			for i := 0; i < s.Len(); i++ {
+				tags = append(tags, s.Index(i).Elem().String())
+			}
 			member := team.Employee{
 				Colaborator: team.Colaborator{
 					Name:      resultMap["name"].(string),
 					Agreement: resultMap["agreement"].(string),
 					CreatedAt: resultMap["created_at"].(int64),
-					Tags:      resultMap["tags"].([]string),
+					Tags:      tags,
 				},
 				Role: resultMap["role"].(string),
 			}
@@ -103,12 +105,48 @@ func (r *mongoRepository) DbGetAll() (members []interface{}, err error) {
 	return members, nil
 }
 
-func (r *mongoRepository) DbGet(name string) (member interface{}, err error) {
+func (r *mongoRepository) DbGet(name string) (interface{}, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), r.timeout)
 	defer cancel()
 	collection := r.client.Database(r.database).Collection("members")
 	filter := bson.M{"name": name}
-	err = collection.FindOne(ctx, filter).Decode(&member)
+	resultMap := map[string]interface{}{}
+	err := collection.FindOne(ctx, filter).Decode(&resultMap)
+	agreement := resultMap["agreement"].(string)
+	var member team.Member
+	if agreement == common.CONTRACTOR {
+		var tags []string
+		tgs := resultMap["tags"]
+		s := reflect.ValueOf(tgs)
+		for i := 0; i < s.Len(); i++ {
+			tags = append(tags, s.Index(i).Elem().String())
+		}
+		member = &team.Contractor{
+			Colaborator: team.Colaborator{
+				Name:      resultMap["name"].(string),
+				Agreement: resultMap["agreement"].(string),
+				CreatedAt: resultMap["created_at"].(int64),
+				Tags:      tags,
+			},
+			Duration: int(resultMap["duration"].(int32)),
+		}
+	} else if agreement == string(common.EMPLOYEE) {
+		var tags []string
+		tgs := resultMap["tags"]
+		s := reflect.ValueOf(tgs)
+		for i := 0; i < s.Len(); i++ {
+			tags = append(tags, s.Index(i).Elem().String())
+		}
+		member = &team.Employee{
+			Colaborator: team.Colaborator{
+				Name:      resultMap["name"].(string),
+				Agreement: resultMap["agreement"].(string),
+				CreatedAt: resultMap["created_at"].(int64),
+				Tags:      tags,
+			},
+			Role: resultMap["role"].(string),
+		}
+	}
 	if err != nil {
 		if err == mongo.ErrNoDocuments {
 			return nil, errors.Wrap(team.ErrMemberNotFound, "repository.Member.Get")

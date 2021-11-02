@@ -6,6 +6,8 @@ import (
 	"golang-interview-project-masaru-ohashi/cmd/client/mock"
 	"golang-interview-project-masaru-ohashi/cmd/client/ports"
 	"golang-interview-project-masaru-ohashi/cmd/common"
+	"golang-interview-project-masaru-ohashi/pkg/team"
+	"math/rand"
 )
 
 var repoTypePtr *string
@@ -27,9 +29,16 @@ func main() {
 	newMember5 := mock.NewMember("Daniel", common.EMPLOYEE, []string{"GO", "C"}, 0, "Software Developer")
 	newMemberAPI.Post(newMember5)
 	members, _ := newMemberAPI.GetAll()
-	for _, m := range members {
-		println(m)
+	forEachPrintln(members)
+	ms := toInterfaces(members)
+	choosen := toMember(selectRandom(ms))
+	name := choosen.GetName()
+	member, _ := newMemberAPI.Get(name)
+	agreement := member.GetAgreement()
+	if agreement == common.CONTRACTOR {
+		member.(*team.Contractor).Duration = 5
 	}
+	member, _ = newMemberAPI.Put(member)
 }
 
 func settleApi(apiType, repoType *string) ports.MemberPort {
@@ -51,4 +60,29 @@ func settleApi(apiType, repoType *string) ports.MemberPort {
 		return repo
 	}
 	return nil
+}
+
+func forEachPrintln(members []team.Member) {
+	for _, v := range members {
+		println(v.GetName())
+	}
+}
+
+func selectRandom(a []interface{}) interface{} {
+	pos := rand.Intn(len(a))
+	return a[pos]
+}
+
+func toInterfaces(x []team.Member) []interface{} {
+	y := make([]interface{}, len(x))
+	for i, v := range x {
+		y[i] = v
+	}
+	return y
+}
+
+func toMember(x interface{}) team.Member {
+	var y team.Member
+	y = x.(team.Member)
+	return y
 }
