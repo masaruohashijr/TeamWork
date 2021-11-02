@@ -12,6 +12,8 @@ import (
 	"net/http"
 	"net/url"
 	"reflect"
+
+	"go.mongodb.org/mongo-driver/bson/primitive"
 )
 
 var errHandler = func(e error) (team.Member, error) {
@@ -74,8 +76,44 @@ func (a *memberAPI) Post(member team.Member) (team.Member, error) {
 }
 
 func (a *memberAPI) Put(member team.Member) (team.Member, error) {
-	// apiEndpoint := a.apiUrl + "/Member"
-	return nil, nil
+	apiEndpoint := a.apiUrl + "/Member"
+	request := &team.RequestMember{}
+	var newMember team.Member
+	switch member.(type) {
+	case *team.Contractor:
+		request = &team.RequestMember{
+			RepoType: a.repoType,
+			Member:   member.(*team.Contractor),
+		}
+	case *team.Employee:
+		request = &team.RequestMember{
+			RepoType: a.repoType,
+			Member:   member.(*team.Employee),
+		}
+	}
+	requestBody, err := json.Marshal(request)
+	var buffer *bytes.Buffer = bytes.NewBuffer(requestBody)
+	req, err := http.NewRequest("PUT", apiEndpoint, buffer)
+	errors.CheckErrorMember(err, errHandler)
+	req.Header.Set("Content-Type", "application/json")
+
+	client := &http.Client{}
+	resp, err := client.Do(req)
+
+	errors.CheckErrorMember(err, errHandler)
+	defer resp.Body.Close()
+	fmt.Println("response Status:", resp.Status)
+	fmt.Println("response Headers:", resp.Header)
+	body, err := ioutil.ReadAll(resp.Body)
+	b := string(body)
+	fmt.Println("response Body:", b)
+	if resp.StatusCode != 200 && resp.StatusCode != 201 {
+		return nil, fmt.Errorf(string(body))
+	}
+	errors.CheckErrorMember(err, errHandler)
+	err = json.Unmarshal(body, &newMember)
+	errors.CheckErrorMember(err, errHandler)
+	return newMember, nil
 }
 
 func (a *memberAPI) Delete(member team.Member) (team.Member, error) {
@@ -190,6 +228,7 @@ func buildContractor(resultMap map[string]interface{}) (member team.Member) {
 	}
 	member = &team.Contractor{
 		Colaborator: team.Colaborator{
+			ID:        colaboratorMap["id"].(primitive.ObjectID),
 			Name:      colaboratorMap["name"].(string),
 			Agreement: colaboratorMap["agreement"].(string),
 			CreatedAt: int64(colaboratorMap["created_at"].(float64)),
@@ -211,6 +250,7 @@ func buildEmployee(resultMap map[string]interface{}) (member team.Member) {
 	}
 	member = &team.Employee{
 		Colaborator: team.Colaborator{
+			ID:        colaboratorMap["id"].(primitive.ObjectID),
 			Name:      colaboratorMap["name"].(string),
 			Agreement: colaboratorMap["agreement"].(string),
 			CreatedAt: int64(colaboratorMap["created_at"].(float64)),

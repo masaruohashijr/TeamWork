@@ -121,6 +121,36 @@ func (h *handler) Post(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *handler) Put(w http.ResponseWriter, r *http.Request) {
+	contentType := r.Header.Get("Content-Type")
+	requestBody, err := ioutil.ReadAll(r.Body)
+	if err != nil {
+		http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
+		return
+	}
+	requestMember, err := h.serializer(contentType).Decode(requestBody)
+	if err != nil {
+		http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
+		return
+	}
+	err = h.memberService.Update(requestMember.Member)
+	if err != nil {
+		if errors.Cause(err) == team.ErrMemberNotFound {
+			http.Error(w, http.StatusText(http.StatusBadRequest), http.StatusBadRequest)
+			return
+		} else if errors.Cause(err) == team.ErrMemberInvalid {
+			println(err.Error())
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+		http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
+		return
+	}
+	responseBody, err := h.serializer(contentType).Encode(requestMember.Member)
+	if err != nil {
+		http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
+		return
+	}
+	setupResponse(w, contentType, responseBody, http.StatusCreated)
 }
 
 func (h *handler) Delete(w http.ResponseWriter, r *http.Request) {

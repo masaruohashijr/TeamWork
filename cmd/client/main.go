@@ -37,6 +37,8 @@ func main() {
 	agreement := member.GetAgreement()
 	if agreement == common.CONTRACTOR {
 		member.(*team.Contractor).Duration = 5
+	} else {
+		member.(*team.Employee).Role = "Scala Developer"
 	}
 	member, _ = newMemberAPI.Put(member)
 }

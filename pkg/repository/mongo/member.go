@@ -9,6 +9,7 @@ import (
 
 	"github.com/pkg/errors"
 	"go.mongodb.org/mongo-driver/bson"
+	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
 	"go.mongodb.org/mongo-driver/mongo/readpref"
@@ -69,6 +70,7 @@ func (r *mongoRepository) DbGetAll() (members []interface{}, err error) {
 			}
 			member := team.Contractor{
 				Colaborator: team.Colaborator{
+					ID:        resultMap["_id"].(primitive.ObjectID),
 					Name:      resultMap["name"].(string),
 					Agreement: resultMap["agreement"].(string),
 					CreatedAt: resultMap["created_at"].(int64),
@@ -123,6 +125,7 @@ func (r *mongoRepository) DbGet(name string) (interface{}, error) {
 		}
 		member = &team.Contractor{
 			Colaborator: team.Colaborator{
+				ID:        resultMap["_id"].(primitive.ObjectID),
 				Name:      resultMap["name"].(string),
 				Agreement: resultMap["agreement"].(string),
 				CreatedAt: resultMap["created_at"].(int64),
@@ -139,6 +142,7 @@ func (r *mongoRepository) DbGet(name string) (interface{}, error) {
 		}
 		member = &team.Employee{
 			Colaborator: team.Colaborator{
+				ID:        resultMap["_id"].(primitive.ObjectID),
 				Name:      resultMap["name"].(string),
 				Agreement: resultMap["agreement"].(string),
 				CreatedAt: resultMap["created_at"].(int64),
@@ -204,6 +208,19 @@ func (r *mongoRepository) DbCreate(member interface{}) error {
 }
 
 func (r *mongoRepository) DbUpdate(member interface{}) error {
+	switch member.(type) {
+	case *team.Contractor:
+	case *team.Employee:
+		println(member.(*team.Employee).Colaborator.ID.Hex())
+		collection := r.client.Database(r.database).Collection("members")
+		filter := bson.M{"_id": bson.M{"$eq": "6181232b0f190acdebe3a92e"}}
+		update := bson.M{"$set": bson.M{"role": member.(*team.Employee).Role}}
+		collection.UpdateOne(
+			context.Background(),
+			filter,
+			update,
+		)
+	}
 	return nil
 }
 
